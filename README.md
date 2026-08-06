@@ -4,6 +4,8 @@ SPDX-License-Identifier: CC-BY-4.0
 -->
 
 # canvas-timeline
+[![License: BSD 3-Clause](https://img.shields.io/badge/license-BSD%203--Clause%20-blue)]()
+[![Version](https://img.shields.io/github/v/release/adaptyst/canvas-timeline?include_prereleases&label=version)](https://github.com/Adaptyst/canvas-timeline/releases)
 
 canvas-timeline is a JavaScript library used for rendering a canvas-based timeline,
 which can be then used e.g. in Adaptyst Analyser modules.
