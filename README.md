@@ -19,6 +19,9 @@ which can be then used e.g. in Adaptyst Analyser modules.
 ## How to use
 Coming soon!
 
+## Contributing
+Contributions are welcome! [The Adaptyst guidelines](https://adaptyst.web.cern.ch/docs/intro/contributing-and-collaborating) apply.
+
 ## License
 Copyright (C) CERN.
 
