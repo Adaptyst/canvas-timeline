@@ -22,8 +22,8 @@ Coming soon!
 ## License
 Copyright (C) CERN.
 
-This project is distributed under the BSD 3-Clause license except for `README.md`
-which is licensed under the CC BY 4.0 license. See `LICENSES` for the license texts.
+This project is generally distributed under the BSD 3-Clause license, with a few exceptions.
+See the individual files for their licensing information.
 
 ## Acknowledgements
 The Adaptyst development is possible thanks to the following funding sources:
