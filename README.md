@@ -12,7 +12,7 @@ which can be then used e.g. in Adaptyst Analyser modules.
 
 ## Disclaimer
 1. This is currently a dev version, so bugs are to be expected! All feedback is welcome
-   (use GitHub Issues for this).
+   (use [our Jira issue tracker](https://adaptyst.web.cern.ch/issue-tracker) and/or [forum](https://adaptyst-forum.web.cern.ch) for this).
 2. A significant amount of AI assistance is used for development of this project.
    **All AI-produced work is reviewed by a human. Also, polishes are made by a human
    wherever needed.** Slips may nevertheless occur as long as canvas-timeline is in
