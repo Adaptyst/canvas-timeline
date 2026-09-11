@@ -330,16 +330,41 @@ class CanvasTimeline {
     }
 
     #truncatedLabel(label, indent) {
+        let segments = this.#labelSegments(label);
+        let plain_text = segments.map(segment => segment.text).join('');
         let available_width = this.#name_pane_width - indent - 4;
-        if (this.#measureLabel(label) <= available_width) {
-            return label;
+        if (this.#measureLabel(segments) <= available_width) {
+            return {segments: segments, plain_text: plain_text, truncated: false};
         }
-        let truncated = label;
-        while (truncated.length > 0 &&
-               this.#measureLabel(truncated + '...') > available_width) {
-            truncated = truncated.slice(0, -1);
+
+        let ellipsis = {text: '...', bold: false, color: undefined};
+        if (this.#measureLabel([ellipsis]) > available_width) {
+            return {segments: [], plain_text: plain_text, truncated: true};
         }
-        return truncated + '...';
+
+        let retained = [];
+        outer:
+        for (const segment of segments) {
+            for (const character of segment.text) {
+                let previous_length = retained.length;
+                let previous_text = previous_length === 0 ? undefined :
+                    retained[previous_length - 1].text;
+                this.#appendLabelSegment(retained, {
+                    text: character,
+                    bold: segment.bold,
+                    color: segment.color
+                });
+                if (this.#measureLabel(retained.concat(ellipsis)) > available_width) {
+                    retained.length = previous_length;
+                    if (previous_length > 0) {
+                        retained[previous_length - 1].text = previous_text;
+                    }
+                    break outer;
+                }
+            }
+        }
+        this.#appendLabelSegment(retained, ellipsis);
+        return {segments: retained, plain_text: plain_text, truncated: true};
     }
 
     #minimumLabelWidth() {
@@ -349,35 +374,103 @@ class CanvasTimeline {
             if (group.nestedGroups !== undefined) {
                 indent += this.#expandIconSize() + 4;
             }
-            minimum_width = Math.max(minimum_width, indent + this.#measureLabel('...') + 4);
+            minimum_width = Math.max(minimum_width,
+                                     indent + this.#measureLabel([
+                                         {text: '...', bold: false, color: undefined}
+                                     ]) + 4);
         }
         return Math.ceil(minimum_width);
     }
 
-    #labelParts(label) {
-        let match = /^(\[(?:R|P\/T)\]\s*)(.*)$/.exec(label);
-        return match == null ? ['', label] : [match[1], match[2]];
+    #appendLabelSegment(segments, segment) {
+        if (segment.text === '') {
+            return;
+        }
+        let previous = segments[segments.length - 1];
+        if (previous !== undefined && previous.bold === segment.bold &&
+            previous.color === segment.color) {
+            previous.text += segment.text;
+        } else {
+            segments.push({text: segment.text, bold: segment.bold, color: segment.color});
+        }
     }
 
-    #measureLabel(label) {
-        let parts = this.#labelParts(label);
+    #labelColor(value) {
+        if (value == null) {
+            return undefined;
+        }
+        let color = String(value).trim();
+        if (color === '' || /^(?:currentcolor|inherit|initial|none|revert(?:-layer)?|unset)$/i.test(color) ||
+            /\b(?:calc|env|var)\s*\(/i.test(color)) {
+            return undefined;
+        }
+        let element = document.createElement('span');
+        element.style.color = color;
+        return element.style.color === '' ? undefined : color;
+    }
+
+    #labelSegments(label) {
+        let template = document.createElement('template');
+        template.innerHTML = String(label);
+        let segments = [];
+
+        let visit = (node, formatting) => {
+            if (node.nodeType === 3) {
+                this.#appendLabelSegment(segments, {
+                    text: node.nodeValue,
+                    bold: formatting.bold,
+                    color: formatting.color
+                });
+                return;
+            }
+            if (node.nodeType !== 1) {
+                return;
+            }
+            let tag = node.tagName.toLowerCase();
+            if (tag === 'script' || tag === 'style') {
+                return;
+            }
+            let child_formatting = formatting;
+            if (tag === 'b') {
+                child_formatting = {bold: true, color: formatting.color};
+            } else if (tag === 'font') {
+                child_formatting = {bold: formatting.bold, color: formatting.color};
+                let color = this.#labelColor(node.getAttribute('color'));
+                if (color !== undefined) {
+                    child_formatting.color = color;
+                }
+            }
+            let children = tag === 'template' ? node.content.childNodes : node.childNodes;
+            for (const child of children) {
+                visit(child, child_formatting);
+            }
+        };
+
+        for (const child of template.content.childNodes) {
+            visit(child, {bold: false, color: undefined});
+        }
+        return segments;
+    }
+
+    #measureLabel(segments) {
         this.#context.save();
-        this.#context.font = this.#font('bold');
-        let width = this.#context.measureText(parts[0]).width;
-        this.#context.font = this.#font();
-        width += this.#context.measureText(parts[1]).width;
+        let width = 0;
+        for (const segment of segments) {
+            this.#context.font = this.#font(segment.bold ? 'bold' : '');
+            width += this.#context.measureText(segment.text).width;
+        }
         this.#context.restore();
         return width;
     }
 
     #drawLabel(label, x, y) {
-        let parts = this.#labelParts(label);
         this.#context.save();
-        this.#context.font = this.#font('bold');
-        this.#context.fillText(parts[0], x, y);
-        x += this.#context.measureText(parts[0]).width;
-        this.#context.font = this.#font();
-        this.#context.fillText(parts[1], x, y);
+        for (const segment of label.segments) {
+            this.#context.font = this.#font(segment.bold ? 'bold' : '');
+            this.#context.fillStyle = segment.color ?? '#111111';
+            this.#context.fillText(segment.text, x, y);
+            x += this.#context.measureText(segment.text).width;
+        }
         this.#context.restore();
     }
 
@@ -418,7 +511,8 @@ class CanvasTimeline {
         }
         let indent = group.level * 18 + 5 +
             (group.nestedGroups === undefined ? 0 : this.#expandIconSize() + 4);
-        this.#canvas.title = this.#truncatedLabel(group.label, indent) === group.label ? '' : group.label;
+        let label = this.#truncatedLabel(group.label, indent);
+        this.#canvas.title = label.truncated ? label.plain_text : '';
     }
 
     #contextMenu(event) {
